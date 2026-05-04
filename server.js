@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 
@@ -16,14 +17,17 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// Serve static files from public folder
-app.use(express.static(path.join(__dirname, 'public')));
+
+const publicDir = path.join(__dirname, 'public');
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+}
 
 // MongoDB connection with better error handling
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log(' MongoDB connected '))
   .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
+    console.error('MongoDB connection error:', err.message);
     console.error('Make sure:', 
       '\n- MongoDB is running',
       '\n- Connection string is correct',
@@ -52,12 +56,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Server error', error: err.message });
 });
 
-// 404 handler - serve index.html for SPA routes
+// Root route for backend-only deployments
+app.get('/', (req, res) => {
+  res.json({ message: 'API is running', apiBase: '/api' });
+});
+
+// 404 handler for API routes
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ message: 'API route not found' });
   }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.status(404).json({ message: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 5000;
